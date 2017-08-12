@@ -1,8 +1,8 @@
 /* Arduino Multi-mode Bluetooth Robot
 
  The circuit:
- * D11   >>>  Rx
- * D10   >>>  Tx
+ * D8   >>>  Rx
+ * D7   >>>  Tx
  * 5V    >>>  VCC (some HC-05 models are powered on 3.3V, verify before connecting)
  * GND   >>>  GND
  Note:
@@ -21,8 +21,10 @@
 #define LIGHT_FOLLOW      '1'
 #define LIGHT_AVOID       '2'
 #define LINE_FOLLOW       '3'
-#define ULTRASONIC_FOLLOW '4'
-#define ULTRASONIC_AVOID  '5'
+#define LINE_AVOID        '4'
+#define ULTRASONIC_FOLLOW '5'
+#define ULTRASONIC_AVOID  '6'
+#define STOP_MOTORS       '0'
 #define MOVE_FORWARD      'w'
 #define MOVE_BACK         's'
 #define MOVE_LEFT         'a'
@@ -31,20 +33,23 @@
 SoftwareSerial BTserial(7, 8);    // RX, TX
 
 // Constants
-int light[4] = {0,1,2,3};         //wire as ldrLeft A0, ldrRight A1, lineLeft A2, lineRight A3
-int lightTol[2] = {10,15};        //light tol, line tol
+int light[4] = {0,1,2,3};         // wire as ldrLeft A0, ldrRight A1, lineLeft A2, lineRight A3
+int lightTol[2] = {10,15};        // light tol, line tol
 int driveTime = 3;
 
 // Variables
+char mode = '0';                  // rc mode stop
 int leftMotorSpeed = 0;
 int rightMotorSpeed = 0;
+char BluetoothByte;               // the data given from Computer
+
 
 void setup(){
-  Serial.begin(9600);
-  Serial.print("setup");
 
   // setup peripherals: bluetooth serial
   BTserial.begin(9600);
+  Serial.begin(9600);
+  Serial.print("setup");
   
   // Set Pins
   pinMode(motor1Forward, OUTPUT);
@@ -60,66 +65,95 @@ void setup(){
 
 void loop(){
   
-  char BluetoothByte;              // the data given from Computer
-
   if(BTserial.available()){
     
     BluetoothByte = BTserial.read();
+    
+    mode = BluetoothByte;
 
-    switch(BluetoothByte){
-      
-      case LIGHT_FOLLOW:
-      
-        light_mode(0,'F');
-        break;
-        
-      case LIGHT_AVOID:
-      
-        light_mode(0,'A');
-        break;
-        
-      case LINE_FOLLOW:
-        
-        light_mode(1,'A');  // Line Follow (avoid white)
-        break;
-        
-      case ULTRASONIC_FOLLOW:
-              
-        break;
-        
-      case ULTRASONIC_AVOID:
-              
-        break;
-        
+    switch(mode){
+
       case MOVE_FORWARD:
       
         // RC mode: forward
         forward(HIGH);
+        Serial.println("forward");
         break;
         
       case MOVE_BACK:
       
         // RC mode: reverse
         reverse(HIGH);
+        Serial.println("reverse");
         break;
         
       case MOVE_LEFT:
       
         // RC mode: steer left
         steerLeft(HIGH);
+        Serial.println("left");
         break;
         
       case MOVE_RIGHT:
       
         // RC mode: steer right
         steerRight(HIGH);
+        Serial.println("right");
         break;
-        
+
+      case STOP_MOTORS:
+      
+        // RC mode: stop motors
+        resetMotors();
+        Serial.println("stop");
+        break;
+      
     }
+
   }
+
+  switch(mode){
+    
+    case LIGHT_FOLLOW:
+    
+      light_mode(0,'F');
+      Serial.println("light follow");
+      break;
+      
+    case LIGHT_AVOID:
+    
+      light_mode(0,'A');
+      Serial.println("light avoid");
+      break;
+      
+    case LINE_FOLLOW:
+      
+      light_mode(1,'A');  // Line Follow (avoid white)
+      Serial.println("line follow");
+      break;
+      
+    case LINE_AVOID:
+      
+      light_mode(1,'F');  // Line Avoid (remain in white regions)
+      Serial.println("line avoid");
+      break;
+            
+    case ULTRASONIC_FOLLOW:
+
+      Serial.println("U.S. follow");
+      break;
+      
+    case ULTRASONIC_AVOID:
+
+      Serial.println("U.S. avoid");
+      break;
+      
+  }
+  
 }
 
 // Helper Functions
+
 void light_mode(int s, char m){
   //LDR: 0 with 'F' or 'A';   Line Follow: 1 with 'A'
   int left = analogRead(light[2*s]);
